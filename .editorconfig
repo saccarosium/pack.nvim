@@ -1,10 +1,17 @@
 root = true
 
 [*]
+end_of_line = lf
+indent_size = 2
 indent_style = space
-indent_size = 4
-trim_trailing_whitespace = true
 insert_final_newline = true
+tab_width = 8
+trim_trailing_whitespace = true
 
-[*.md]
+[{*.md}]
+indent_size = 2
 trim_trailing_whitespace = false
+
+[{doc/*.txt}]
+indent_size = 8
+indent_style = tab

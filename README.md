@@ -1,20 +1,20 @@
-# Paq
+# Pack.nvim
 
-Paq is a Neovim package manager written in Lua.
-
+Pack is a fork of [paq-nvim](https://github.com/savq/paq-nvim) and tries to be
+dead simple and levereging the neovim's builtin APIs to reduce it's size.
 
 ## Features
 
-- __Simple__: Easy to use and configure
-- __Fast__:   Installs and updates packages concurrently using Neovim's event-loop
-- __Small__:  Around 500 LOC
-
+- **Simple**: Easy to use and configure
+- **Fast**: Installs and updates packages concurrently using Neovim's event-loop
+- **Small**: Around 450 LOC
+- **UpToDate**: Relies as mutch as possible to neovim nightly APIs
+- **Upstreamable**: Tries to always match the neovim core lua code style
 
 ## Requirements
 
 - git
-- [Neovim](https://github.com/neovim/neovim) nightly
-
+- [Neovim Nightly](https://github.com/neovim/neovim)
 
 ## Installation
 
@@ -23,32 +23,28 @@ Clone this repository.
 For Unix-like systems:
 
 ```sh
-git clone --depth=1 --branch=nightly https://github.com/savq/paq-nvim.git \
-    "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/pack/paqs/start/paq-nvim
+git clone --depth=1 https://github.com/saccarosium/pack.nvim.git \
+    "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/pack/packs/start/pack.nvim
 ```
 
 For Windows (cmd.exe):
 
 ```
-git clone --branch=nightly https://github.com/savq/paq-nvim.git %LOCALAPPDATA%\nvim-data\site\pack\paqs\start\paq-nvim
+git clone https://github.com/saccarosium/pack.nvim.git %LOCALAPPDATA%\nvim-data\site\pack\packs\start\pack.nvim
 ```
 
 For Windows (powershell):
 
 ```
-git clone --branch=nightly https://github.com/savq/paq-nvim.git "$env:LOCALAPPDATA\nvim-data\site\pack\paqs\start\paq-nvim"
+git clone https://github.com/saccarosium/pack.nvim.git $env:LOCALAPPDATA\nvim-data\site\pack\packs\start\pack.nvim
 ```
-
-To install Paq automatically or to install your plugins in `--headless` mode
-see the documentation section `:h paq-bootstrapping`.
-
 
 ## Usage
 
-In your init.lua, `require` the `"paq"` module with a list of packages, like:
+In your init.lua, `require` the `"pack"` module with a list of packages, like:
 
 ```lua
-require "paq" {
+require("pack").register({
     "savq/paq-nvim", -- Let Paq manage itself
 
     "neovim/nvim-lspconfig",
@@ -56,19 +52,17 @@ require "paq" {
     { "lervag/vimtex", opt = true }, -- Use braces when passing options
 
     { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
-}
+})
 ```
 
-Then, source your configuration (executing `:source $MYVIMRC`) and run `:PaqInstall`.
-
+Then, source your configuration (executing `:source $MYVIMRC`) and run `:PackInstall`.
 
 ## Commands
 
-- `PaqInstall`: Install all packages listed in your configuration.
-- `PaqUpdate`: Update all packages already on your system (it won't implicitly install them).
-- `PaqClean`: Remove all packages (in Paq's directory) that aren't listed on your configuration.
-- `PaqSync`: Execute the three commands listed above.
-
+- `PackInstall`: Install all packages listed in your configuration.
+- `PackUpdate`: Update all packages already on your system (it won't implicitly install them).
+- `PackClean`: Remove all packages (in Pack's directory) that aren't listed on your configuration.
+- `PackSync`: Execute the three commands listed above.
 
 ## Options
 
@@ -83,11 +77,6 @@ Then, source your configuration (executing `:source $MYVIMRC`) and run `:PaqInst
 | pin    | boolean  | Pinned packages are not updated                           |
 | url    | string   | URL of the remote repository, useful for non-GitHub repos |
 
-For more details on each option, refer to the
-[documentation](https://github.com/savq/paq-nvim/tree/master/doc/paq-nvim.txt).
+## Credits
 
-
-## Related projects
-
-You can find a [comparison](https://github.com/savq/paq-nvim/wiki/Comparisons)
-with other package managers in the [wiki](https://github.com/savq/paq-nvim/wiki).
+Thanks to Sergio A. Vargas (@savq) for creating [paq-nvim](https://github.com/savq/paq-nvim).
