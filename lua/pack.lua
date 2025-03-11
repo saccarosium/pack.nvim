@@ -11,7 +11,6 @@ local uv = vim.uv
 --- @field status pack.Status?
 --- @field hash string?
 --- @field pin boolean?
---- @field opt boolean?
 --- @field build string? | function?
 --- @field url string?
 
@@ -41,13 +40,10 @@ local Packages = {}
 local Path = {
   lock = vim.fs.joinpath(vim.fn.stdpath('state'), 'pack-lock.json'),
   log = vim.fs.joinpath(vim.fn.stdpath('log'), 'pack.log'),
-  pack = vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'pack', 'packs'),
+  pack = vim.fs.joinpath(vim.fn.stdpath('data'), 'pack'),
 }
 
 --- @class pack.Opts
----
---- (default: `false`)
---- @field opt boolean
 ---
 --- (default: `https://github.com/%s.git`)
 --- @field url_format string
@@ -60,7 +56,6 @@ local Path = {
 local Config = {
   -- Using '--tags --force' means conflicting tags will be synced with remote
   clone_args = { '--depth=1', '--recurse-submodules', '--shallow-submodules', '--no-single-branch' },
-  opt = false,
   pull_args = { '--tags', '--force', '--recurse-submodules', '--update-shallow' },
   url_format = 'https://github.com/%s.git',
 }
@@ -107,18 +102,15 @@ local function file_read(path)
   return data
 end
 
---- @return pack.Package
+--- @return pack.Package[]
 local function find_unlisted()
   local unlisted = {}
-  for _, packdir in ipairs { 'start', 'opt' } do
-    local path = vim.fs.joinpath(Path.pack, packdir)
-    for name, type in vim.fs.dir(path) do
-      if type == 'directory' and name ~= 'pack.nvim' then
-        local dir = vim.fs.joinpath(path, name)
-        local pkg = Packages[name]
-        if not pkg or pkg.dir ~= dir then
-          table.insert(unlisted, { name = name, dir = dir })
-        end
+  for name, type in vim.fs.dir(Path.pack) do
+    if type == 'directory' and name ~= 'pack.nvim' then
+      local dir = vim.fs.joinpath(Path.pack, name)
+      local pkg = Packages[name]
+      if not pkg or pkg.dir ~= dir then
+        table.insert(unlisted, { name = name, dir = dir })
       end
     end
   end
@@ -363,10 +355,10 @@ local function resolve(pkg, counter, build_queue)
   end
 end
 
----@param pkg pack.Package
+--- @param pkg string|pack.Package
+--- @return pack.Package?
 local function register(pkg)
   if type(pkg) == 'string' then
-    ---@diagnostic disable-next-line: missing-fields
     pkg = { pkg }
   end
 
@@ -376,14 +368,14 @@ local function register(pkg)
 
   local name = pkg.as or url:gsub('%.git$', ''):match('/([%w-_.]+)$') -- Infer name from `url`
   if not name then
-    return vim.notify(' Paq: Failed to parse ' .. vim.inspect(pkg), vim.log.levels.ERROR)
+    error('Pack: Failed to parse ' .. vim.inspect(pkg))
   end
-  local opt = pkg.opt or Config.opt and pkg.opt == nil
-  local dir = vim.fs.joinpath(Path.pack, (opt and 'opt' or 'start'), name)
+
+  local dir = vim.fs.joinpath(Path.pack, name)
   local ok, hash = pcall(get_git_hash, dir)
   hash = ok and hash or ''
 
-  Packages[name] = {
+  return {
     name = name,
     branch = pkg.branch,
     dir = dir,
@@ -437,7 +429,7 @@ local function exe_op(op, fn, pkgs, silent)
   local function after(ok, err, nop)
     local summary = 'Pack: %s complete. %d ok; %d errors;' .. (nop > 0 and ' %d no-ops' or '')
     vim.notify(string.format(summary, op, ok, err, nop))
-    vim.cmd('packloadall! | silent! helptags ALL')
+    vim.cmd('silent! helptags ALL')
     if #build_queue ~= 0 then
       exe_op('build', run_build, build_queue)
     end
@@ -463,7 +455,6 @@ local function calculate_diffs()
     local pack_pkg = Packages[name]
     if pack_pkg and Filter.not_removed(lock_pkg) and not vim.deep_equal(lock_pkg, pack_pkg) then
       for k, v in pairs {
-        dir = M.status.TO_MOVE,
         branch = M.status.TO_RECLONE,
         url = M.status.TO_RECLONE,
       } do
@@ -495,10 +486,20 @@ end
 --- @param pkgs pack.Package[]
 function M.register(pkgs)
   vim.validate('pkgs', pkgs, 'table', true)
-  Package = {}
-  vim.tbl_map(register, pkgs)
+  Packages = {}
+  pkgs = vim.tbl_map(register, pkgs)
+
+  for _, pkg in ipairs(pkgs) do
+    Packages[pkg.name] = pkg
+    vim.opt.runtimepath:prepend(pkg.dir)
+  end
+
   lock_load()
   exe_op('resolve', resolve, calculate_diffs(), true)
+
+  for _, pkg in ipairs(find_unlisted()) do
+    vim.opt.runtimepath:remove(pkg.dir)
+  end
 end
 
 function M.install() exe_op('install', clone, vim.tbl_filter(Filter.to_install, Packages)) end
