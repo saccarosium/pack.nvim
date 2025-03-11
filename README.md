@@ -8,7 +8,7 @@ dead simple and levereging the neovim's builtin APIs to reduce it's size.
 - **Simple**: Easy to use and configure
 - **Fast**: Installs and updates packages concurrently using Neovim's event-loop
 - **Small**: Around 450 LOC
-- **UpToDate**: Relies as mutch as possible to neovim nightly APIs
+- **UpToDate**: Relies as much as possible to neovim nightly APIs
 - **Upstreamable**: Tries to always match the neovim core lua code style
 
 ## Requirements
