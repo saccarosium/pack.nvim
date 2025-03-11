@@ -580,7 +580,7 @@ do
   end, { bar = true })
 
   vim.api.nvim_create_user_command('PackLogClean', function()
-    if uv.fs_unlink(Path.log) then
+    if pcall(vim.fs.rm, Path.log) then
       vim.notify('Pack: log file deleted')
     else
       vim.notify('Pack: error while deleting log file', vim.log.levels.ERROR)
