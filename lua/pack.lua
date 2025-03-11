@@ -113,7 +113,7 @@ local function find_unlisted()
   for _, packdir in ipairs { 'start', 'opt' } do
     local path = vim.fs.joinpath(Path.pack, packdir)
     for name, type in vim.fs.dir(path) do
-      if type == 'directory' and name ~= 'paq-nvim' then
+      if type == 'directory' and name ~= 'pack.nvim' then
         local dir = vim.fs.joinpath(path, name)
         local pkg = Packages[name]
         if not pkg or pkg.dir ~= dir then
