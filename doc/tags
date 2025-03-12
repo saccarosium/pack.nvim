@@ -1,0 +1,10 @@
+pack.Opts	pack.txt	/*pack.Opts*
+pack.Package	pack.txt	/*pack.Package*
+pack.clean()	pack.txt	/*pack.clean()*
+pack.config()	pack.txt	/*pack.config()*
+pack.install()	pack.txt	/*pack.install()*
+pack.query()	pack.txt	/*pack.query()*
+pack.register()	pack.txt	/*pack.register()*
+pack.sync()	pack.txt	/*pack.sync()*
+pack.update()	pack.txt	/*pack.update()*
+vim.pack	pack.txt	/*vim.pack*
