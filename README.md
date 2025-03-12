@@ -47,13 +47,11 @@ In your init.lua, `require` the `"pack"` module with a list of packages, like:
 
 ```lua
 require("pack").register({
-    "savq/paq-nvim", -- Let Paq manage itself
+    "saccarosium/pack.nvim", -- Let Pack manage itself
 
     "neovim/nvim-lspconfig",
 
-    { "lervag/vimtex", opt = true }, -- Use braces when passing options
-
-    { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
+    { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' }, -- Use braces when passing options
 })
 ```
 
@@ -75,6 +73,5 @@ Then, source your configuration (executing `:source $MYVIMRC`) and run `:PackIns
 | build  | function | Lua function to run after install/update                  |
 | build  | string   | Shell command to run after install/update                 |
 | build  | string   | Prefixed with a ':' will run a vim command                |
-| opt    | boolean  | Optional packages are not loaded on startup               |
 | pin    | boolean  | Pinned packages are not updated                           |
 | url    | string   | URL of the remote repository, useful for non-GitHub repos |
