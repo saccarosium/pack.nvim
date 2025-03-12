@@ -1,6 +1,6 @@
-local M = {}
-
 local uv = vim.uv
+
+local M = {}
 
 --- @class pack.Package
 --- @field [1] string?
@@ -14,6 +14,7 @@ local uv = vim.uv
 --- @field build string? | function?
 --- @field url string?
 
+--- @nodoc
 --- @enum pack.Status
 M.status = {
   INSTALLED = 0,
@@ -25,17 +26,17 @@ M.status = {
   TO_RECLONE = 6,
 }
 
---- @private
+--- @nodoc
 --- Table of pgks loaded from the lockfile
 --- @type pack.Package[]
 local Lock = {}
 
---- @private
+--- @nodoc
 --- Table of pkgs loaded from the user configuration
 --- @type pack.Package[]
 local Packages = {}
 
---- @private
+--- @nodoc
 --- @type table<string, string>
 local Path = {
   lock = vim.fs.joinpath(vim.fn.stdpath('state'), 'pack-lock.json'),
@@ -45,12 +46,15 @@ local Path = {
 
 --- @class pack.Opts
 ---
+--- Format string used to transform the package name into a git url.
 --- (default: `https://github.com/%s.git`)
 --- @field url_format string
 ---
+--- Flags passed to `git clone` during installation of a plugin (see `:Man git-clone(1)` for more)
 --- (default: `{ "--depth=1", "--recurse-submodules", "--shallow-submodules", "--no-single-branch" }`)
 --- @field clone_args string[]
 ---
+--- Flags passed to `git pull` during update of a plugin (see `:Man git-pull(1)` for more)
 --- (default: `{ "--tags", "--force", "--recurse-submodules", "--update-shallow" }`)
 --- @field pull_args string[]
 local Config = {
@@ -317,7 +321,7 @@ local function run_build(pkg)
   end
 end
 
----@param pkg pack.Package
+--- @param pkg pack.Package
 local function reclone(pkg, _, build_queue)
   local ok = pcall(vim.fs.rm, pkg.dir, { recursive = true })
   if not ok then
@@ -380,8 +384,8 @@ local function register(pkg)
   }
 end
 
----@param pkg pack.Package
----@param counter function
+--- @param pkg pack.Package
+--- @param counter function
 local function remove(pkg, counter)
   local ok = pcall(vim.fs.rm, pkg.dir, { recursive = true })
   counter(pkg.name, Messages.remove, ok and 'ok' or 'err')
@@ -392,19 +396,20 @@ local function remove(pkg, counter)
   lock_write()
 end
 
----@alias Operation
----| '"install"'
----| '"update"'
----| '"remove"'
----| '"build"'
----| '"resolve"'
----| '"sync"'
-
----Boilerplate around operations (autocmds, counter initialization, etc.)
----@param op Operation
----@param fn function
----@param pkgs pack.Package[]
----@param silent boolean?
+--- @nodoc
+--- @alias Operation
+--- | '"install"'
+--- | '"update"'
+--- | '"remove"'
+--- | '"build"'
+--- | '"resolve"'
+--- | '"sync"'
+---
+--- Boilerplate around operations (autocmds, counter initialization, etc.)
+--- @param op Operation
+--- @param fn function
+--- @param pkgs pack.Package[]
+--- @param silent boolean?
 local function exe_op(op, fn, pkgs, silent)
   if vim.tbl_isempty(pkgs) then
     if not silent then
@@ -476,6 +481,18 @@ function M.config(opts)
   end
 end
 
+--- Register one or more plugins to be installed (see [packspec]())
+---
+--- Example:
+---
+--- ```lua
+--- pack.register({
+---   "saccarosium/pack.nvim",
+---   "neovim/nvim-lspconfig",
+---   { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
+--- })
+--- ```
+---
 --- @param pkgs pack.Package[]
 function M.register(pkgs)
   vim.validate('pkgs', pkgs, 'table', true)
@@ -495,21 +512,36 @@ function M.register(pkgs)
   end
 end
 
+--- Installs not already installed registered plugins
+---
+--- Can also be invoked with `PackInstall`. [PackInstall]()
 function M.install() exe_op('install', clone, vim.tbl_filter(Filter.to_install, Packages)) end
+
+--- Updates all registered plugins
+---
+--- Can also be invoked with `PackUpdate`. [PackUpdate]()
 function M.update() exe_op('update', pull, vim.tbl_filter(Filter.to_update, Packages)) end
+
+--- Deletes all not plugins installed but not registered in the pack directory.
+---
+--- Can also be invoked with `PackClean`. [PackClean]()
 function M.clean() exe_op('remove', remove, find_unlisted()) end
 
+--- Does a clean, install and pull at the same time in this order.
+---
+--- Can also be invoked with `PackSync`. [PackSync]()
 function M.sync()
   M.clean()
   exe_op('sync', clone_or_pull, vim.tbl_filter(Filter.not_removed, Packages))
 end
 
----Queries paq's packages storage with predefined
----filters by passing one of the following strings:
+--- Queries pack's packages storage with predefined
+--- filters by passing one of the following strings:
 --- - "installed"
 --- - "to_install"
 --- - "to_update"
----@param filter string
+---
+--- @param filter string
 function M.query(filter)
   vim.validate('filter', filter, { 'function', 'string' }, true)
 
