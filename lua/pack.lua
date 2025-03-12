@@ -128,13 +128,6 @@ local function get_git_hash(dir)
   return head_ref and first_line(vim.fs.joinpath(dir, '.git', head_ref:sub(6, -1)))
 end
 
---- @param path string string to remove
---- @return boolean
-local function rmdir(path)
-  local ok = pcall(vim.fs.rm, path, { recursive = true })
-  return ok
-end
-
 --- @param pkg pack.Package
 --- @param prev_hash string
 --- @param cur_hash string
@@ -326,7 +319,7 @@ end
 
 ---@param pkg pack.Package
 local function reclone(pkg, _, build_queue)
-  local ok = rmdir(pkg.dir)
+  local ok = pcall(vim.fs.rm, pkg.dir, { recursive = true })
   if not ok then
     return
   end
@@ -390,7 +383,7 @@ end
 ---@param pkg pack.Package
 ---@param counter function
 local function remove(pkg, counter)
-  local ok = rmdir(pkg.dir)
+  local ok = pcall(vim.fs.rm, pkg.dir, { recursive = true })
   counter(pkg.name, Messages.remove, ok and 'ok' or 'err')
   if not ok then
     return
