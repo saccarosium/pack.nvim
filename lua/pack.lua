@@ -579,24 +579,28 @@ do
   })
 
   vim.api.nvim_create_user_command('PackList', function()
-    local installed = vim.tbl_filter(Filter.installed, Lock)
-    local removed = vim.tbl_filter(Filter.removed, Lock)
-    local sort_by_name = function(t)
-      table.sort(t, function(a, b) return a.name < b.name end)
-    end
-    sort_by_name(installed)
-    sort_by_name(removed)
-    local markers = { '+', '*' }
-    for header, pkgs in pairs {
-      ['Installed packages:'] = installed,
-      ['Recently removed:'] = removed,
-    } do
-      if #pkgs ~= 0 then
-        print(header)
-        for _, pkg in ipairs(pkgs) do
-          print(' ', markers[pkg.status] or ' ', pkg.name)
-        end
+    local installed = {}
+    local removed = {}
+
+    for _, pkg in vim.spairs(Lock) do
+      if Filter.installed(pkg) then
+        table.insert(installed, pkg)
+      elseif Filter.removed(pkg) then
+        table.insert(removed, pkg)
       end
+    end
+
+    local markers = { '+', '*' }
+    local pkg_print = function(pkg) print(' ', markers[pkg.status] or ' ', pkg.name) end
+
+    if #installed ~= 0 then
+      print('Installed packages:')
+      vim.iter(installed):each(pkg_print)
+    end
+
+    if #removed ~= 0 then
+      print('Recently removed:')
+      vim.iter(removed):each(pkg_print)
     end
   end, { bar = true })
 
