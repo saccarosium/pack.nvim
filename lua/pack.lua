@@ -22,8 +22,6 @@ M.status = {
   UPDATED = 2,
   REMOVED = 3,
   TO_INSTALL = 4,
-  TO_MOVE = 5,
-  TO_RECLONE = 6,
 }
 
 --- List of packages to build
@@ -81,8 +79,6 @@ local Filter = {
   to_update = function(p)
     return p.status ~= M.status.REMOVED and p.status ~= M.status.TO_INSTALL and not p.pin
   end,
-  to_move = function(p) return p.status == M.status.TO_MOVE end,
-  to_reclone = function(p) return p.status == M.status.TO_RECLONE end,
 }
 
 --- @param path string
@@ -281,17 +277,6 @@ local function clone_or_pull(pkg, counter)
   end
 end
 
---- Move package to wanted location.
---- @param src pack.Package
---- @param dst pack.Package
-local function move(src, dst)
-  local ok = uv.fs_rename(src.dir, dst.dir)
-  if ok then
-    dst.status = M.status.INSTALLED
-    lock_write()
-  end
-end
-
 local function process_build_queue()
   local failed = {}
 
@@ -328,33 +313,13 @@ end
 --- @param pkg pack.Package
 local function reclone(pkg)
   local ok = pcall(vim.fs.rm, pkg.dir, { recursive = true })
-  if not ok then
-    return
+  if ok then
+    clone(pkg, function() end)
   end
-  local args = vim.list_extend({ 'git', 'clone', pkg.url }, Config.clone_args)
-  if pkg.branch then
-    vim.list_extend(args, { '-b', pkg.branch })
-  end
-  table.insert(args, pkg.dir)
-  vim.system(args, {}, function(obj)
-    if obj.code == 0 then
-      pkg.status = M.status.INSTALLED
-      pkg.hash = get_git_hash(pkg.dir)
-      lock_write()
-      if pkg.build then
-        table.insert(BuildQueue, pkg)
-      end
-    end
-  end)
 end
 
-local function resolve(pkg, counter)
-  if Filter.to_move(pkg) then
-    move(pkg, Packages[pkg.name])
-  elseif Filter.to_reclone(pkg) then
-    reclone(Packages[pkg.name], counter)
-  end
-end
+--- @param conflict pack.Conflict
+local function resolve(conflict) reclone(conflict.curr) end
 
 --- @param pkg string|pack.Package
 --- @return pack.Package?
@@ -431,9 +396,7 @@ local function exe_op(op, fn, pkgs)
       process_build_queue()
     end
 
-    vim.api.nvim_exec_autocmds('User', {
-      pattern = 'PackDone' .. op:gsub('^%l', string.upper),
-    })
+    vim.api.nvim_exec_autocmds('User', { pattern = 'PackDone' .. op:gsub('^%l', string.upper) })
 
     -- This makes the logfile reload if there were changes while the job was running
     vim.cmd('silent! checktime ' .. vim.fn.fnameescape(Path.log))
@@ -446,23 +409,21 @@ local function exe_op(op, fn, pkgs)
   end
 end
 
-local function calculate_diffs()
-  local diffs = {}
-  for name, lock_pkg in pairs(Lock) do
-    local pack_pkg = Packages[name]
-    if pack_pkg and Filter.not_removed(lock_pkg) and not vim.deep_equal(lock_pkg, pack_pkg) then
-      for k, v in pairs {
-        branch = M.status.TO_RECLONE,
-        url = M.status.TO_RECLONE,
-      } do
-        if lock_pkg[k] ~= pack_pkg[k] then
-          lock_pkg.status = v
-          table.insert(diffs, lock_pkg)
-        end
-      end
+--- @nodoc
+--- @class pack.Conflict
+--- @field prev pack.Package
+--- @field curr pack.Package
+---
+--- @return pack.Conflict[]
+local function calculate_conflicts()
+  local conflicts = {}
+  for name, lock in pairs(Lock) do
+    local pkg = Packages[name]
+    if pkg and Filter.not_removed(lock) and (lock.branch ~= pkg.branch or lock.url ~= lock.url) then
+      table.insert(conflicts, { prev = lock, curr = pkg })
     end
   end
-  return diffs
+  return conflicts
 end
 
 ---@param opts pack.Opts? When omitted or `nil`, retrieve the current
@@ -495,17 +456,24 @@ end
 --- @param pkgs pack.Package[]
 function M.register(pkgs)
   vim.validate('pkgs', pkgs, 'table', true)
+
   Packages = {}
   pkgs = vim.tbl_map(register, pkgs)
 
+  -- Load packages into runtimepath
   for _, pkg in ipairs(pkgs) do
     Packages[pkg.name] = pkg
     vim.opt.runtimepath:prepend(pkg.dir)
   end
 
+  -- Resolve conflict between user configuration and lockfile
   lock_load()
-  exe_op('resolve', resolve, calculate_diffs())
+  for _, conflict in ipairs(calculate_conflicts()) do
+    resolve(conflict)
+  end
+  lock_write()
 
+  -- Unload unlisted packages from runtimepath
   for _, pkg in ipairs(find_unlisted()) do
     vim.opt.runtimepath:remove(pkg.dir)
   end
