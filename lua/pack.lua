@@ -229,7 +229,6 @@ local function clone(pkg, counter)
     local ok = obj.code == 0
     if ok then
       pkg.status = M.status.CLONED
-      lock_write()
       if pkg.build then
         table.insert(BuildQueue, pkg)
       end
@@ -259,7 +258,6 @@ local function pull(pkg, counter)
     end
     log_update_changes(pkg, prev_hash or '', cur_hash)
     pkg.status, pkg.hash = M.status.UPDATED, cur_hash
-    lock_write()
     counter(pkg.name, Messages.update, 'ok')
     if pkg.build then
       table.insert(BuildQueue, pkg)
@@ -362,7 +360,6 @@ local function remove(pkg, counter)
     return
   end
   Packages[pkg.name] = { name = pkg.name, status = M.status.REMOVED }
-  lock_write()
 end
 
 --- @nodoc
@@ -392,6 +389,7 @@ local function exe_op(op, fn, pkgs)
     local summary = 'Pack: %s complete. %d ok; %d errors;' .. (nop > 0 and ' %d no-ops' or '')
     vim.notify(string.format(summary, op, ok, err, nop))
     vim.cmd('silent! helptags ALL')
+
     if #BuildQueue ~= 0 then
       process_build_queue()
     end
@@ -400,6 +398,8 @@ local function exe_op(op, fn, pkgs)
 
     -- This makes the logfile reload if there were changes while the job was running
     vim.cmd('silent! checktime ' .. vim.fn.fnameescape(Path.log))
+
+    lock_write()
   end
 
   local counter = new_counter(#pkgs, after)
