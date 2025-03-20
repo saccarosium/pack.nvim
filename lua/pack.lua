@@ -39,7 +39,7 @@ local Packages = {}
 local Path = {
   lock = vim.fs.joinpath(vim.fn.stdpath('state'), 'pack-lock.json'),
   log = vim.fs.joinpath(vim.fn.stdpath('log'), 'pack.log'),
-  pack = vim.fs.joinpath(vim.fn.stdpath('data'), 'pack'),
+  packs = vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'pack', 'packs', 'opt'),
 }
 
 --- @class pack.Opts
@@ -105,9 +105,9 @@ end
 --- @return pack.Package[]
 local function find_unlisted()
   local unlisted = {}
-  for name, type in vim.fs.dir(Path.pack) do
+  for name, type in vim.fs.dir(Path.packs) do
     if type == 'directory' and name ~= 'pack.nvim' then
-      local dir = vim.fs.joinpath(Path.pack, name)
+      local dir = vim.fs.joinpath(Path.packs, name)
       local pkg = Packages[name]
       if not pkg or pkg.dir ~= dir then
         table.insert(unlisted, { name = name, dir = dir })
@@ -335,7 +335,7 @@ local function register(pkg)
     error('Pack: Failed to parse ' .. vim.inspect(pkg))
   end
 
-  local dir = vim.fs.joinpath(Path.pack, name)
+  local dir = vim.fs.joinpath(Path.packs, name)
   local ok, hash = pcall(get_git_hash, dir)
   hash = ok and hash or ''
 
@@ -458,13 +458,12 @@ function M.register(pkgs)
   vim.validate('pkgs', pkgs, 'table', true)
 
   Packages = {}
-  pkgs = vim.tbl_map(register, pkgs)
-
-  -- Load packages into runtimepath
-  for _, pkg in ipairs(pkgs) do
-    Packages[pkg.name] = pkg
-    vim.opt.runtimepath:prepend(pkg.dir)
-  end
+  -- Register plugins and load them
+  Packages = vim.iter(pkgs):map(register):fold({}, function(acc, pkg)
+    acc[pkg.name] = pkg
+    pcall(vim.cmd.packadd, pkg.name)
+    return acc
+  end)
 
   -- Resolve conflict between user configuration and lockfile
   lock_load()
@@ -472,11 +471,6 @@ function M.register(pkgs)
     resolve(conflict)
   end
   lock_write()
-
-  -- Unload unlisted packages from runtimepath
-  for _, pkg in ipairs(find_unlisted()) do
-    vim.opt.runtimepath:remove(pkg.dir)
-  end
 end
 
 --- Installs not already installed registered plugins
@@ -487,7 +481,13 @@ function M.install() exe_op('install', clone, vim.tbl_filter(Filter.to_install, 
 --- Updates all registered plugins
 ---
 --- Can also be invoked with `PackUpdate`. [PackUpdate]()
-function M.update() exe_op('update', pull, vim.tbl_filter(Filter.to_update, Packages)) end
+function M.update()
+  local pkgs = vim.tbl_filter(Filter.to_update, Packages)
+  -- Add pack.nvim to pkgs to update
+  local path = vim.fs.joinpath(vim.fs.dirname(Path.packs), 'start', 'pack.nvim')
+  table.insert(pkgs, { name = 'pack.nvim', dir = path, hash = get_git_hash(path) })
+  exe_op('update', pull, pkgs)
+end
 
 --- Deletes all not plugins installed but not registered in the pack directory.
 ---

@@ -44,11 +44,9 @@ git clone https://github.com/saccarosium/pack.nvim.git $env:LOCALAPPDATA\nvim-da
 In your init.lua, `require` the `"pack"` module with a list of packages, like:
 
 ```lua
+-- pack will autoupdate by itself
 require("pack").register({
-    "saccarosium/pack.nvim", -- Let Pack manage itself
-
     "neovim/nvim-lspconfig",
-
     { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' }, -- Use braces when passing options
 })
 ```
