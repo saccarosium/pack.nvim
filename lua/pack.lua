@@ -446,8 +446,8 @@ end
 --- Example:
 ---
 --- ```lua
+--- -- pack will update by itself
 --- pack.register({
----   "saccarosium/pack.nvim",
 ---   "neovim/nvim-lspconfig",
 ---   { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
 --- })

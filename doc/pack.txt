@@ -9,14 +9,27 @@ A package manager for neovim                                  *pack* *pack.nvim*
 ==============================================================================
 USAGE                                                             *pack-usage*
 
-In your init.lua, require the "pack" module with a list of packages, like: >lua
-    require("pack").register({
-        "saccarosium/pack.nvim",
-        "neovim/nvim-lspconfig",
-        { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
-    })
-
+In your |init.lua|, use the |pack.register| function to register some plugins.
 Then, source your configuration and run `:PackInstall`.
+
+==============================================================================
+QUICKSTART                                                   *pack-quickstart*
+
+To start using pack.nvim as soon as possible place the following snippet in
+your configuration: >lua
+   -- Bootstrap pack.nvim
+   local path = vim.fs.joinpath(vim.fn.stdpath("data"), "site", "pack", "packs", "start", "pack.nvim")
+   if not vim.uv.fs_stat(path) then
+     local url = "https://github.com/saccarosium/pack.nvim.git"
+     vim.fn.system({ "git", "clone", url, path })
+     assert(vim.v.shell_error == 0, "pack.nvim installation failed.")
+     vim.cmd.packadd("pack.nvim")
+   end
+
+   -- Register plugins
+   require("pack").register({
+     -- Insert plugins here
+   })
 
 ==============================================================================
 API                                                                 *pack-api*
@@ -84,8 +97,8 @@ pack.register({pkgs})                                        *pack.register()*
     Register one or more plugins to be installed (see *packspec*)
 
     Example: >lua
+        -- pack will update by itself
         pack.register({
-          "saccarosium/pack.nvim",
           "neovim/nvim-lspconfig",
           { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
         })

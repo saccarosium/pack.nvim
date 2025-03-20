@@ -44,10 +44,18 @@ git clone https://github.com/saccarosium/pack.nvim.git $env:LOCALAPPDATA\nvim-da
 In your init.lua, `require` the `"pack"` module with a list of packages, like:
 
 ```lua
--- pack will autoupdate by itself
+-- Bootstrap pack.nvim
+local path = vim.fs.joinpath(vim.fn.stdpath("data"), "site", "pack", "packs", "start", "pack.nvim")
+if not vim.uv.fs_stat(path) then
+  local url = "https://github.com/saccarosium/pack.nvim.git"
+  vim.fn.system({ "git", "clone", url, path })
+  assert(vim.v.shell_error == 0, "pack.nvim installation failed.")
+  vim.cmd.packadd("pack.nvim")
+end
+
+-- Register plugins
 require("pack").register({
-    "neovim/nvim-lspconfig",
-    { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' }, -- Use braces when passing options
+  -- Insert plugins here
 })
 ```
 
