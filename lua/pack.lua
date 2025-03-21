@@ -2,17 +2,22 @@ local uv = vim.uv
 
 local M = {}
 
---- @class pack.Package
---- @field [1] string?
---- @field name string?
---- @field as string?
+--- @class pack.PackageSpec
+--- @field [1] string
+--- @field build string?
 --- @field branch string?
---- @field dir string?
---- @field status pack.Status?
---- @field hash string?
 --- @field pin boolean?
+--- @field as string?
+
+--- @class pack.Package
+--- @field name string
+--- @field dir string
+--- @field status pack.Status
+--- @field hash string
+--- @field url string
+--- @field pin boolean?
+--- @field branch string?
 --- @field build string? | function?
---- @field url string?
 
 --- @nodoc
 --- @enum pack.Status
@@ -25,6 +30,7 @@ M.status = {
 }
 
 --- List of packages to build
+--- type pack.Package[]
 local BuildQueue = {}
 
 --- Table of pgks loaded from the lockfile
@@ -319,15 +325,14 @@ end
 --- @param conflict pack.Conflict
 local function resolve(conflict) reclone(conflict.curr) end
 
---- @param pkg string|pack.Package
+--- @param pkg string|pack.PackageSpec
 --- @return pack.Package?
 local function register(pkg)
   if type(pkg) == 'string' then
     pkg = { pkg }
   end
 
-  local url = pkg.url
-    or (pkg[1]:match('^https?://') and pkg[1]) -- [1] is a URL
+  local url = (pkg[1]:match('^https?://') and pkg[1]) -- [1] is a URL
     or string.format(Config.url_format, pkg[1]) -- [1] is a repository name
 
   local name = pkg.as or url:gsub('%.git$', ''):match('/([%w-_.]+)$') -- Infer name from `url`
@@ -359,7 +364,24 @@ local function remove(pkg, counter)
   if not ok then
     return
   end
-  Packages[pkg.name] = { name = pkg.name, status = M.status.REMOVED }
+  Packages[pkg.name].status = M.status.REMOVED
+end
+
+--- @nodoc
+--- @class pack.Conflict
+--- @field prev pack.Package
+--- @field curr pack.Package
+---
+--- @return pack.Conflict[]
+local function calculate_conflicts()
+  local conflicts = {}
+  for name, lock in pairs(Lock) do
+    local pkg = Packages[name]
+    if pkg and Filter.not_removed(lock) and (lock.branch ~= pkg.branch or lock.url ~= lock.url) then
+      table.insert(conflicts, { prev = lock, curr = pkg })
+    end
+  end
+  return conflicts
 end
 
 --- @nodoc
@@ -409,23 +431,6 @@ local function exe_op(op, fn, pkgs)
   end
 end
 
---- @nodoc
---- @class pack.Conflict
---- @field prev pack.Package
---- @field curr pack.Package
----
---- @return pack.Conflict[]
-local function calculate_conflicts()
-  local conflicts = {}
-  for name, lock in pairs(Lock) do
-    local pkg = Packages[name]
-    if pkg and Filter.not_removed(lock) and (lock.branch ~= pkg.branch or lock.url ~= lock.url) then
-      table.insert(conflicts, { prev = lock, curr = pkg })
-    end
-  end
-  return conflicts
-end
-
 ---@param opts pack.Opts? When omitted or `nil`, retrieve the current
 ---       configuration. Otherwise, a configuration table (see |pack.Opts|).
 ---@return pack.Opts? : Current pack config if {opts} is omitted.
@@ -441,7 +446,7 @@ function M.config(opts)
   end
 end
 
---- Register one or more plugins to be installed (see [packspec]())
+--- Register one or more plugins to be installed (see [pack.PackageSpec]())
 ---
 --- Example:
 ---
@@ -451,26 +456,37 @@ end
 ---   "neovim/nvim-lspconfig",
 ---   { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
 --- })
+---
+--- -- You can register different plugins in separate calls
+--- pack.register({ "tpope/vim-fugitive" })
+---
+--- pack.register({ "dracula/vim", as = "dracula" })
 --- ```
 ---
---- @param pkgs pack.Package[]
+--- @param pkgs pack.Package[]? When omitted or `nil`, it will deregister every other plugin.
 function M.register(pkgs)
-  vim.validate('pkgs', pkgs, 'table', true)
+  vim.validate('pkgs', pkgs, { 'table', 'nil' }, true)
 
-  Packages = {}
+  if not pkgs then
+    Packages = {}
+    return
+  end
+
+  if not vim.islist(pkgs) then
+    pkgs = { pkgs }
+  end
+
   -- Register plugins and load them
-  Packages = vim.iter(pkgs):map(register):fold({}, function(acc, pkg)
+  Packages = vim.iter(pkgs):map(register):fold(Packages, function(acc, pkg)
     acc[pkg.name] = pkg
     pcall(vim.cmd.packadd, pkg.name)
     return acc
   end)
 
   -- Resolve conflict between user configuration and lockfile
-  lock_load()
   for _, conflict in ipairs(calculate_conflicts()) do
     resolve(conflict)
   end
-  lock_write()
 end
 
 --- Installs not already installed registered plugins
@@ -534,6 +550,9 @@ for cmd_name, fn in pairs {
 end
 
 do
+  -- Load lockfile only once when module is first required
+  lock_load()
+
   vim.api.nvim_create_user_command('PackList', function()
     local installed = {}
     local removed = {}

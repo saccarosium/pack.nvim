@@ -78,7 +78,6 @@ Then, source your configuration (executing `:source $MYVIMRC`) and run `:PackIns
 | build  | string   | Shell command to run after install/update                 |
 | build  | string   | Prefixed with a ':' will run a vim command                |
 | pin    | boolean  | Pinned packages are not updated                           |
-| url    | string   | URL of the remote repository, useful for non-GitHub repos |
 
 ## Credits
 

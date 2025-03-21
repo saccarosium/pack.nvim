@@ -50,16 +50,23 @@ API                                                                 *pack-api*
 *pack.Package*
 
     Fields: ~
-      • {[1]}     (`string?`)
-      • {name}    (`string?`)
-      • {as}      (`string?`)
-      • {branch}  (`string?`)
-      • {dir}     (`string?`)
-      • {status}  (`pack.Status?`)
-      • {hash}    (`string?`)
+      • {name}    (`string`)
+      • {dir}     (`string`)
+      • {status}  (`pack.Status`)
+      • {hash}    (`string`)
+      • {url}     (`string`)
       • {pin}     (`boolean?`)
+      • {branch}  (`string?`)
       • {build}   (`string?|function?`)
-      • {url}     (`string?`)
+
+*pack.PackageSpec*
+
+    Fields: ~
+      • {[1]}     (`string`)
+      • {build}   (`string?`)
+      • {branch}  (`string?`)
+      • {pin}     (`boolean?`)
+      • {as}      (`string?`)
 
 
 pack.clean()                                                    *pack.clean()*
@@ -94,7 +101,7 @@ pack.query({filter})                                            *pack.query()*
       • {filter}  (`string`)
 
 pack.register({pkgs})                                        *pack.register()*
-    Register one or more plugins to be installed (see *packspec*)
+    Register one or more plugins to be installed (see *pack.PackageSpec*)
 
     Example: >lua
         -- pack will update by itself
@@ -102,10 +109,16 @@ pack.register({pkgs})                                        *pack.register()*
           "neovim/nvim-lspconfig",
           { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
         })
+
+        -- You can register different plugins in separate calls
+        pack.register({ "tpope/vim-fugitive" })
+
+        pack.register({ "dracula/vim", as = "dracula" })
 <
 
     Parameters: ~
-      • {pkgs}  (`pack.Package[]`)
+      • {pkgs}  (`pack.Package[]?`) When omitted or `nil`, it will deregister
+                every other plugin.
 
 pack.sync()                                                      *pack.sync()*
     Does a clean, install and pull at the same time in this order.
