@@ -123,6 +123,20 @@ local function find_unlisted()
   return unlisted
 end
 
+local function confirm(items, callback, bang)
+  if bang or vim.tbl_isempty(items) then
+    callback()
+    return
+  end
+  local prompt = vim.iter(items):map(function(x) return x.name end):join('\n')
+  prompt = prompt .. '\nConfirm deletion of this plugins [y|N]: '
+  vim.ui.input({ prompt = prompt }, function(ans)
+    if ans and ans:match('[Yy]e?s?') then
+      callback()
+    end
+  end)
+end
+
 --- @param dir string
 --- @return string
 local function get_git_hash(dir)
@@ -364,7 +378,8 @@ local function remove(pkg, counter)
   if not ok then
     return
   end
-  Packages[pkg.name].status = M.status.REMOVED
+  pkg.status = M.status.REMOVED
+  Packages[pkg.name] = pkg
 end
 
 --- @nodoc
@@ -389,8 +404,6 @@ end
 --- | '"install"'
 --- | '"update"'
 --- | '"remove"'
---- | '"build"'
---- | '"resolve"'
 --- | '"sync"'
 ---
 --- Boilerplate around operations (autocmds, counter initialization, etc.)
@@ -540,13 +553,22 @@ function M.query(filter)
   return vim.deepcopy(vim.tbl_filter(filter, Packages), true)
 end
 
-for cmd_name, fn in pairs {
-  PackClean = M.clean,
+for cmd, fn in pairs {
   PackInstall = M.install,
-  PackSync = M.sync,
   PackUpdate = M.update,
 } do
-  vim.api.nvim_create_user_command(cmd_name, fn, { bar = true })
+  vim.api.nvim_create_user_command(cmd, fn, { bar = true })
+end
+
+for cmd, fn in pairs {
+  PackClean = M.clean,
+  PackSync = M.sync,
+} do
+  vim.api.nvim_create_user_command(
+    cmd,
+    function(a) confirm(find_unlisted(), fn, a.bang) end,
+    { bang = true, bar = true }
+  )
 end
 
 do
