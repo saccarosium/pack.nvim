@@ -7,6 +7,7 @@ local M = {}
 --- @field build string?
 --- @field branch string?
 --- @field pin boolean?
+--- @field load boolean?
 --- @field as string?
 
 --- @class pack.Package
@@ -121,20 +122,6 @@ local function find_unlisted()
     end
   end
   return unlisted
-end
-
-local function confirm(items, callback, bang)
-  if bang or vim.tbl_isempty(items) then
-    callback()
-    return
-  end
-  local prompt = vim.iter(items):map(function(x) return x.name end):join('\n')
-  prompt = prompt .. '\nConfirm deletion of this plugins [y|N]: '
-  vim.ui.input({ prompt = prompt }, function(ans)
-    if ans and ans:match('[Yy]e?s?') then
-      callback()
-    end
-  end)
 end
 
 --- @param dir string
@@ -359,13 +346,14 @@ local function register(pkg)
   hash = ok and hash or ''
 
   return {
-    name = name,
     branch = pkg.branch,
-    dir = dir,
-    status = uv.fs_stat(dir) and M.status.INSTALLED or M.status.TO_INSTALL,
-    hash = hash,
-    pin = pkg.pin,
     build = pkg.build,
+    dir = dir,
+    hash = hash,
+    load = pkg.load or pkg.load == nil,
+    name = name,
+    pin = pkg.pin,
+    status = uv.fs_stat(dir) and M.status.INSTALLED or M.status.TO_INSTALL,
     url = url,
   }
 end
@@ -468,31 +456,24 @@ end
 --- pack.register({
 ---   "neovim/nvim-lspconfig",
 ---   { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
+---   -- don't load this plugin when registering. The user needs to call `packadd`.
+---   { 'tpope/vim-fugitive', load = false },
 --- })
----
---- -- You can register different plugins in separate calls
---- pack.register({ "tpope/vim-fugitive" })
----
---- pack.register({ "dracula/vim", as = "dracula" })
 --- ```
 ---
---- @param pkgs pack.Package[]? When omitted or `nil`, it will deregister every other plugin.
+--- @param pkgs pack.PackageSpec[]
 function M.register(pkgs)
-  vim.validate('pkgs', pkgs, { 'table', 'nil' }, true)
+  vim.validate('pkgs', pkgs, { 'table' }, true)
 
-  if not pkgs then
-    Packages = {}
-    return
-  end
-
-  if not vim.islist(pkgs) then
-    pkgs = { pkgs }
-  end
-
+  Packages = {}
   -- Register plugins and load them
   Packages = vim.iter(pkgs):map(register):fold(Packages, function(acc, pkg)
     acc[pkg.name] = pkg
-    pcall(vim.cmd.packadd, pkg.name)
+    if pkg.load then
+      pcall(vim.cmd.packadd, pkg.name)
+      -- Remove load from the schema
+      pkg.load = nil
+    end
     return acc
   end)
 
@@ -554,21 +535,12 @@ function M.query(filter)
 end
 
 for cmd, fn in pairs {
+  PackClean = M.clean,
   PackInstall = M.install,
+  PackSync = M.sync,
   PackUpdate = M.update,
 } do
   vim.api.nvim_create_user_command(cmd, fn, { bar = true })
-end
-
-for cmd, fn in pairs {
-  PackClean = M.clean,
-  PackSync = M.sync,
-} do
-  vim.api.nvim_create_user_command(
-    cmd,
-    function(a) confirm(find_unlisted(), fn, a.bang) end,
-    { bang = true, bar = true }
-  )
 end
 
 do
