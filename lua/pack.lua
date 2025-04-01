@@ -7,7 +7,7 @@ local M = {}
 --- @field build string?
 --- @field branch string?
 --- @field pin boolean?
---- @field load boolean?
+--- @field opt boolean?
 --- @field as string?
 
 --- @class pack.Package
@@ -350,8 +350,8 @@ local function register(pkg)
     build = pkg.build,
     dir = dir,
     hash = hash,
-    load = pkg.load or pkg.load == nil,
     name = name,
+    opt = pkg.opt,
     pin = pkg.pin,
     status = uv.fs_stat(dir) and M.status.INSTALLED or M.status.TO_INSTALL,
     url = url,
@@ -469,10 +469,10 @@ function M.register(pkgs)
   -- Register plugins and load them
   Packages = vim.iter(pkgs):map(register):fold(Packages, function(acc, pkg)
     acc[pkg.name] = pkg
-    if pkg.load then
+    if not pkg.opt then
       pcall(vim.cmd.packadd, pkg.name)
-      -- Remove load from the schema
-      pkg.load = nil
+      -- Remove opt from the schema
+      pkg.opt = nil
     end
     return acc
   end)
