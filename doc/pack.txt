@@ -66,6 +66,7 @@ API                                                                 *pack-api*
       • {build}   (`string?`)
       • {branch}  (`string?`)
       • {pin}     (`boolean?`)
+      • {load}    (`boolean?`)
       • {as}      (`string?`)
 
 
@@ -108,17 +109,13 @@ pack.register({pkgs})                                        *pack.register()*
         pack.register({
           "neovim/nvim-lspconfig",
           { 'nvim-treesitter/nvim-treesitter', build = ':TSUpdate' },
+          -- don't load this plugin when registering. The user needs to call `packadd`.
+          { 'tpope/vim-fugitive', load = false },
         })
-
-        -- You can register different plugins in separate calls
-        pack.register({ "tpope/vim-fugitive" })
-
-        pack.register({ "dracula/vim", as = "dracula" })
 <
 
     Parameters: ~
-      • {pkgs}  (`pack.Package[]?`) When omitted or `nil`, it will deregister
-                every other plugin.
+      • {pkgs}  (`pack.PackageSpec[]`)
 
 pack.sync()                                                      *pack.sync()*
     Does a clean, install and pull at the same time in this order.
