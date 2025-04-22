@@ -327,7 +327,7 @@ end
 local function resolve(conflict) reclone(conflict.curr) end
 
 --- @param pkg string|pack.PackageSpec
---- @return pack.Package?
+--- @return pack.Package
 local function register(pkg)
   if type(pkg) == 'string' then
     pkg = { pkg }
@@ -338,7 +338,7 @@ local function register(pkg)
 
   local name = pkg.as or url:gsub('%.git$', ''):match('/([%w-_.]+)$') -- Infer name from `url`
   if not name then
-    error('Pack: Failed to parse ' .. vim.inspect(pkg))
+    error('Failed to parse ' .. vim.inspect(pkg))
   end
 
   local dir = vim.fs.joinpath(Path.packs, name)
@@ -465,21 +465,42 @@ end
 function M.register(pkgs)
   vim.validate('pkgs', pkgs, { 'table' }, true)
 
-  Packages = {}
   -- Register plugins and load them
-  Packages = vim.iter(pkgs):map(register):fold(Packages, function(acc, pkg)
-    acc[pkg.name] = pkg
-    if not pkg.opt then
-      pcall(vim.cmd.packadd, pkg.name)
-      -- Remove opt from the schema
-      pkg.opt = nil
-    end
-    return acc
-  end)
+  local errors = {}
+  Packages = vim
+    .iter(pkgs)
+    :map(function(spec)
+      local ok, pkg = pcall(register, spec)
+      if not ok then
+        table.insert(errors, pkg)
+      else
+        return pkg
+      end
+    end)
+    :fold({}, function(acc, pkg)
+      acc[pkg.name] = pkg
+      if not pkg.opt then
+        pcall(vim.cmd.packadd, pkg.name)
+        -- Remove opt from the schema
+        pkg.opt = nil
+      end
+      return acc
+    end)
 
   -- Resolve conflict between user configuration and lockfile
   for _, conflict in ipairs(calculate_conflicts()) do
     resolve(conflict)
+  end
+
+  for _, error in ipairs(errors) do
+    file_write(Path.log, 'a+', '\n' .. error)
+  end
+
+  if #errors > 0 then
+    vim.notify(
+      ('Pack: %d packages failed to be parsed. Check :PackLogOpen to learn more'):format(#errors),
+      vim.log.levels.ERROR
+    )
   end
 end
 
